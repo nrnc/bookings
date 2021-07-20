@@ -102,39 +102,10 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		helpers.ServerError(w, err)
 		return
 	}
-	// sd := r.Form.Get("start_date")
-	// ed := r.Form.Get("end_date")
-
-	// layout := "2006-01-02"
-	// startDate, err := time.Parse(layout, sd)
-	// if err != nil {
-	// 	helpers.ServerError(w, err)
-	// 	return
-	// }
-	// endDate, err := time.Parse(layout, ed)
-	// if err != nil {
-	// 	helpers.ServerError(w, err)
-	// 	return
-	// }
-	// roomId, err := strconv.Atoi(r.Form.Get("room_id"))
-	// if err != nil {
-	// 	helpers.ServerError(w, err)
-	// 	return
-	// }
 	res.FirstName = r.Form.Get("first_name")
 	res.LastName = r.Form.Get("last_name")
 	res.Email = r.Form.Get("email")
 	res.Phone = r.Form.Get("phone")
-	// reservation := models.Reservation{
-	// 	FirstName: r.Form.Get("first_name"),
-	// 	LastName:  r.Form.Get("last_name"),
-	// 	Email:     r.Form.Get("email"),
-	// 	Phone:     r.Form.Get("phone"),
-	// 	StartDate: startDate,
-	// 	EndDate:   endDate,
-	// 	RoomId:    roomId,
-	// }
-
 	form := forms.New(r.PostForm)
 	form.Required("first_name", "last_name", "email")
 	form.MinLength("first_name", 4)
