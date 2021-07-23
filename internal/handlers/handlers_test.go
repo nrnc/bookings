@@ -321,7 +321,7 @@ func TestRepositoryAvailabilityJSON(t *testing.T) {
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "end_date=2050-01-02")
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "room_id=1")
 
-	req, _ := http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	req, _ := http.NewRequest("POST", "/search-availability-json", strings.NewReader(reqBody))
 
 	ctx := getCtx(req)
 	req = req.WithContext(ctx)
@@ -337,6 +337,7 @@ func TestRepositoryAvailabilityJSON(t *testing.T) {
 	if err != nil || j.OK != true {
 		t.Errorf("failed rooms are not available")
 	}
+
 	// test parse form error
 	req, _ = http.NewRequest("POST", "/search-availability", nil)
 	ctx = getCtx(req)
@@ -371,9 +372,114 @@ func TestRepositoryAvailabilityJSON(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	err = json.Unmarshal([]byte(rr.Body.Bytes()), &j)
-	fmt.Print(j.OK, j.Message)
+
 	if err != nil || j.OK != false || j.Message != "error connecting to database" {
 		t.Errorf("failed test DB SearchAvailabilty by room id")
+	}
+}
+
+func TestRepositoryPostAvailability(t *testing.T) {
+	// first case - Availabilty between dates 0 rooms
+	reqBody := "start=2050-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=2050-01-01")
+	req, _ := http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	ctx := getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusSeeOther, rr.Code)
+	}
+	// test for failed ParseForm
+	req, _ = http.NewRequest("POST", "/make-reservation", nil)
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusTemporaryRedirect {
+		t.Errorf("Post Reservation handler failed invalid form, got %d expected %d", rr.Code, http.StatusSeeOther)
+	}
+	// third case - Availabilty between dates start date error
+	reqBody = "start=invalid"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=2050-01-02")
+	req, _ = http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTemporaryRedirect {
+		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusTemporaryRedirect, rr.Code)
+	}
+
+	// fourth case - Availabilty between dates end date error
+	reqBody = "start=2050-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=invalid")
+	req, _ = http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTemporaryRedirect {
+		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusTemporaryRedirect, rr.Code)
+	}
+	// fifth case rooms available
+	reqBody = "start=2050-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=2050-01-02")
+	req, _ = http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusSeeOther, rr.Code)
+	}
+	// 6th case rooms available test date to fail
+	reqBody = "start=2060-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=2050-01-02")
+	req, _ = http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.PostAvailability)
+
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTemporaryRedirect {
+		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusSeeOther, rr.Code)
 	}
 }
 
