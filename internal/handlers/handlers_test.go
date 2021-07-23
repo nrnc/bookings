@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/nchukkaio/goweblearning/internal/driver"
 	"github.com/nchukkaio/goweblearning/internal/models"
 )
 
@@ -68,7 +70,7 @@ func TestHandlers(t *testing.T) {
 	}
 }
 
-func TestRepositoryReservation(t *testing.T) {
+func TestReservation(t *testing.T) {
 	reservation := models.Reservation{
 		RoomId: 1,
 		Room: models.Room{
@@ -129,7 +131,7 @@ func TestRepositoryReservation(t *testing.T) {
 
 }
 
-func TestRepositoryPostReservation(t *testing.T) {
+func TestPostReservation(t *testing.T) {
 	reqBody := "start_date=2050-01-01"
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "end_date=2050-01-02")
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "first_name=john")
@@ -315,7 +317,7 @@ func TestRepositoryPostReservation(t *testing.T) {
 
 }
 
-func TestRepositoryAvailabilityJSON(t *testing.T) {
+func TestAvailabilityJSON(t *testing.T) {
 	// first case - rooms are not available
 	reqBody := "start_date=2050-01-01"
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "end_date=2050-01-02")
@@ -378,7 +380,7 @@ func TestRepositoryAvailabilityJSON(t *testing.T) {
 	}
 }
 
-func TestRepositoryPostAvailability(t *testing.T) {
+func TestPostAvailability(t *testing.T) {
 	// first case - Availabilty between dates 0 rooms
 	reqBody := "start=2050-01-01"
 	reqBody = fmt.Sprintf("%s&%s", reqBody, "end=2050-01-01")
@@ -480,6 +482,167 @@ func TestRepositoryPostAvailability(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusTemporaryRedirect {
 		t.Errorf("failed Availabilty between dates, expected %d but got %d", http.StatusSeeOther, rr.Code)
+	}
+}
+
+func TestReservationSummary(t *testing.T) {
+	reservation := models.Reservation{
+		RoomId: 1,
+		Room: models.Room{
+			ID:       1,
+			RoomName: "General's Quarters",
+		},
+	}
+
+	req, _ := http.NewRequest("GET", "/reservation-summary", nil)
+	ctx := getCtx(req)
+
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+
+	session.Put(ctx, "reservation", reservation)
+
+	handler := http.HandlerFunc(Repo.ReservationSummary)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Reservation handler failed, got %d expected %d", rr.Code, http.StatusOK)
+	}
+
+	req, _ = http.NewRequest("GET", "/reservation-summary", nil)
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+	rr = httptest.NewRecorder()
+	handler = http.HandlerFunc(Repo.ReservationSummary)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusTemporaryRedirect {
+		t.Errorf("Reservation handler failed, got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	}
+}
+
+func TestNewRepo(t *testing.T) {
+	var db driver.DB
+	testRepo := NewRepo(&app, &db)
+
+	if reflect.TypeOf(testRepo).String() != "*handlers.Repository" {
+		t.Errorf("Did not get correct type from NewRepo: got %s, wanted *Repository", reflect.TypeOf(testRepo).String())
+	}
+}
+
+// chooseRoomTests is the data for ChooseRoom handler tests, /choose-room/{id}
+var chooseRoomTests = []struct {
+	name               string
+	reservation        models.Reservation
+	url                string
+	expectedStatusCode int
+	expectedLocation   string
+}{
+	{
+		name: "reservation-in-session",
+		reservation: models.Reservation{
+			RoomId: 1,
+			Room: models.Room{
+				ID:       1,
+				RoomName: "General's Quarters",
+			},
+		},
+		url:                "/choose-room/1",
+		expectedStatusCode: http.StatusSeeOther,
+		expectedLocation:   "/make-reservation",
+	},
+	{
+		name:               "reservation-not-in-session",
+		reservation:        models.Reservation{},
+		url:                "/choose-room/1",
+		expectedStatusCode: http.StatusSeeOther,
+		expectedLocation:   "/",
+	},
+	{
+		name:               "malformed-url",
+		reservation:        models.Reservation{},
+		url:                "/choose-room/fish",
+		expectedStatusCode: http.StatusSeeOther,
+		expectedLocation:   "/",
+	},
+}
+
+// TestChooseRoom tests the ChooseRoom handler
+func TestChooseRoom(t *testing.T) {
+	for _, e := range chooseRoomTests {
+		req, _ := http.NewRequest("GET", e.url, nil)
+		ctx := getCtx(req)
+		req = req.WithContext(ctx)
+		// set the RequestURI on the request so that we can grab the ID from the URL
+		req.RequestURI = e.url
+
+		rr := httptest.NewRecorder()
+		if e.reservation.RoomId > 0 {
+			session.Put(ctx, "reservation", e.reservation)
+		}
+
+		handler := http.HandlerFunc(Repo.ChooseRoom)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != e.expectedStatusCode {
+			t.Errorf("%s returned wrong response code: got %d, wanted %d", e.name, rr.Code, e.expectedStatusCode)
+		}
+
+		if e.expectedLocation != "" {
+			actualLoc, _ := rr.Result().Location()
+			if actualLoc.String() != e.expectedLocation {
+				t.Errorf("failed %s: expected location %s, but got location %s", e.name, e.expectedLocation, actualLoc.String())
+			}
+		}
+	}
+}
+
+// bookRoomTests is the data for the BookRoom handler tests
+var bookRoomTests = []struct {
+	name               string
+	url                string
+	expectedStatusCode int
+}{
+	{
+		name:               "database-works",
+		url:                "/book-room?s=2050-01-01&e=2050-01-02&id=1",
+		expectedStatusCode: http.StatusSeeOther,
+	},
+	{
+		name:               "database-fails",
+		url:                "/book-room?s=2040-01-01&e=2040-01-02&id=4",
+		expectedStatusCode: http.StatusSeeOther,
+	},
+}
+
+// TestBookRoom tests the BookRoom handler
+func TestBookRoom(t *testing.T) {
+	reservation := models.Reservation{
+		RoomId: 1,
+		Room: models.Room{
+			ID:       1,
+			RoomName: "General's Quarters",
+		},
+	}
+
+	for _, e := range bookRoomTests {
+		req, _ := http.NewRequest("GET", e.url, nil)
+		ctx := getCtx(req)
+		req = req.WithContext(ctx)
+
+		rr := httptest.NewRecorder()
+		session.Put(ctx, "reservation", reservation)
+
+		handler := http.HandlerFunc(Repo.BookRoom)
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusSeeOther {
+			t.Errorf("%s failed: returned wrong response code: got %d, wanted %d", e.name, rr.Code, e.expectedStatusCode)
+		}
 	}
 }
 
