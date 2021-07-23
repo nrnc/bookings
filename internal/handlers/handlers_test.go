@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -312,6 +313,68 @@ func TestRepositoryPostReservation(t *testing.T) {
 		t.Errorf("Post Reservation handler failed insert restriction, got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
 	}
 
+}
+
+func TestRepositoryAvailabilityJSON(t *testing.T) {
+	// first case - rooms are not available
+	reqBody := "start_date=2050-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end_date=2050-01-02")
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "room_id=1")
+
+	req, _ := http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+
+	ctx := getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(Repo.AvailabilityJSON)
+	handler.ServeHTTP(rr, req)
+
+	var j jsonResponse
+
+	err := json.Unmarshal([]byte(rr.Body.Bytes()), &j)
+	if err != nil || j.OK != true {
+		t.Errorf("failed rooms are not available")
+	}
+	// test parse form error
+	req, _ = http.NewRequest("POST", "/search-availability", nil)
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+
+	handler = http.HandlerFunc(Repo.AvailabilityJSON)
+
+	handler.ServeHTTP(rr, req)
+	err = json.Unmarshal([]byte(rr.Body.Bytes()), &j)
+
+	if err != nil || j.Message != "Internal server error" {
+		t.Errorf("Parsing the form test failed")
+	}
+
+	// third case - test DB SearchAvailabilty by room id
+	reqBody = "start_date=2050-01-01"
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "end_date=2050-01-02")
+	reqBody = fmt.Sprintf("%s&%s", reqBody, "room_id=3")
+
+	req, _ = http.NewRequest("POST", "/search-availability", strings.NewReader(reqBody))
+
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handler = http.HandlerFunc(Repo.AvailabilityJSON)
+	handler.ServeHTTP(rr, req)
+
+	err = json.Unmarshal([]byte(rr.Body.Bytes()), &j)
+	fmt.Print(j.OK, j.Message)
+	if err != nil || j.OK != false || j.Message != "error connecting to database" {
+		t.Errorf("failed test DB SearchAvailabilty by room id")
+	}
 }
 
 func getCtx(req *http.Request) context.Context {

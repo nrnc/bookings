@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -255,16 +256,38 @@ type jsonResponse struct {
 
 // AvailabilityJSON checks the availabilty and responds with JSON
 func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		resp := jsonResponse{
+			OK:      false,
+			Message: "Internal server error",
+		}
+		out, _ := json.MarshalIndent(resp, "", "  ")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(out)
+		return
+	}
 
 	sd := r.Form.Get("start")
 	ed := r.Form.Get("end")
 
 	roomId, _ := strconv.Atoi(r.Form.Get("room_id"))
+	fmt.Print("haha")
+	fmt.Print(sd)
 	layout := "2006-01-02"
 	startDate, _ := time.Parse(layout, sd)
 	endDate, _ := time.Parse(layout, ed)
-
-	available, _ := m.DB.SearchAvailabilityByDatesByRoomId(startDate, endDate, roomId)
+	available, err := m.DB.SearchAvailabilityByDatesByRoomId(startDate, endDate, roomId)
+	if err != nil {
+		resp := jsonResponse{
+			OK:      false,
+			Message: "error connecting to database",
+		}
+		out, _ := json.MarshalIndent(resp, "", "  ")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(out)
+		return
+	}
 	resp := jsonResponse{
 		OK:        available,
 		Message:   "",
@@ -272,12 +295,7 @@ func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
 		StartDate: sd,
 		EndDate:   ed,
 	}
-	out, err := json.MarshalIndent(resp, "", "   ")
-
-	if err != nil {
-		helpers.ServerError(w, err)
-		return
-	}
+	out, _ := json.MarshalIndent(resp, "", "   ")
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(out)
