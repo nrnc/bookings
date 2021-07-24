@@ -29,6 +29,10 @@ func TestMain(m *testing.M) {
 	// custom type to keep in session
 	gob.Register(models.Reservation{})
 	// change this to true when in production
+	mailChan := make(chan models.MailData)
+	app.MailChan = mailChan
+	defer close(mailChan)
+	listenForMail()
 	app.InProduction = false
 
 	// set up the session
@@ -53,6 +57,14 @@ func TestMain(m *testing.M) {
 
 	render.NewRenderer(&app)
 	os.Exit(m.Run())
+}
+
+func listenForMail() {
+	go func() {
+		for {
+			_ = <-app.MailChan
+		}
+	}()
 }
 
 func getRoutes() http.Handler {
