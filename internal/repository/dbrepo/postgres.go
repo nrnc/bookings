@@ -2,9 +2,11 @@ package dbrepo
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/nchukkaio/goweblearning/internal/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (m *postgresDBRepo) AllUsers() bool {
@@ -113,6 +115,7 @@ func (m *postgresDBRepo) SearchAvailabilityForAllRooms(start, end time.Time) ([]
 	return rooms, nil
 }
 
+// GetRoomById returns a room by id
 func (m *postgresDBRepo) GetRoomById(id int) (models.Room, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -131,3 +134,90 @@ func (m *postgresDBRepo) GetRoomById(id int) (models.Room, error) {
 
 	return room, err
 }
+
+// GetRoomById returns a User by ID
+func (m *postgresDBRepo) GetUserById(id int) (models.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var u models.User
+	stmt := `
+
+			select id,first_name,last_name,password,email,access_level,created_at,updated_at from users where id = $1
+
+		`
+	row := m.DB.QueryRowContext(ctx, stmt, id)
+	err := row.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Password, &u.Email, &u.AccessLevel, &u.CreatedAt, &u.UpdatedAt)
+
+	if err != nil {
+		return u, err
+	}
+
+	return u, err
+}
+
+// UpdateUser updates user in the database
+func (m *postgresDBRepo) UpdateUser(u models.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	query := `
+		update users set first_name=$1,last_name=$2,email=$3,access_level=$4,updated_at=$5
+	`
+
+	_, err := m.DB.ExecContext(ctx, query, u.FirstName, u.LastName, u.AccessLevel, time.Now())
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Authenticate tells identifies the user
+func (m *postgresDBRepo) Authenticate(email, testPassword string) (int, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var id int
+	var hashedPassword string
+
+	row := m.DB.QueryRowContext(ctx, "select id,password from users where email=$1", email)
+
+	err := row.Scan(&id, &hashedPassword)
+
+	if err != nil {
+		return id, "", err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(testPassword))
+
+	if err == bcrypt.ErrMismatchedHashAndPassword {
+		return 0, "", errors.New("incorrect password")
+	} else if err != nil {
+		return 0, "", err
+	}
+
+	return id, hashedPassword, nil
+}
+
+// // Authenticate tells identifies the user
+// func (m *postgresDBRepo) RegisterUser(email, testPassword string) (int, string, error) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// 	defer cancel()
+
+// 	var newId int
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testPassword), 12)
+// 	if err != nil {
+// 		return newId, "", err
+// 	}
+// 	stmt := `
+// 		insert into users (first_name,last_name,email,password,access_level,
+// 		created_at,updated_at) values($1,$2,$3,$4,$5,$6,$7)
+// 		returning id
+// 	`
+// 	err = m.DB.QueryRowContext(ctx, stmt, "test", "test", email, hashedPassword, 1, time.Now(), time.Now()).Scan(&newId)
+
+// 	if err != nil {
+// 		return newId, "", err
+// 	}
+
+// 	return newId, string(hashedPassword), nil
+// }

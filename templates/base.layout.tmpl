@@ -9,7 +9,7 @@
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
 
-    <title>My Nice Page</title>
+    <title>Booko</title>
 
     <link
       rel="stylesheet"
@@ -100,6 +100,34 @@
           <li class="nav-item">
             <a class="nav-link" href="/contact">Contact</a>
           </li>
+          <li class="nav-item">
+            {{if eq .IsAuthenticated 1}}
+            <li class="nav-item dropdown">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                id="navbarDropdownMenuLink"
+                role="button"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Admin
+              </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                <a class="dropdown-item" href="/admin/dashboard"
+                  >Dashboard</a
+                >
+                <a class="dropdown-item" href="/user/logout">Logout</a>
+              </div>
+            </li>
+            {{else}}
+            <a class="nav-link" href="/user/login">Login</a>
+            {{ end }}
+          </li>
+          <!-- <li class="nav-item">
+            <a class="nav-link" href="/user/register">Register</a>
+          </li> -->
         </ul>
       </div>
     </nav>
