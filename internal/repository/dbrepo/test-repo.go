@@ -80,3 +80,14 @@ func (m *testDBRepo) Authenticate(email, testPassword string) (int, string, erro
 // func (m *testDBRepo) RegisterUser(email, testPassword string) (int, string, error) {
 // 	return 0, "", nil
 // }
+func (m *testDBRepo) AllReservations() ([]models.Reservation, error) {
+	return nil, nil
+}
+func (m *testDBRepo) NewReservations() ([]models.Reservation, error) {
+	return nil, nil
+}
+
+func (m *testDBRepo) GetReservationById(id int) (models.Reservation, error) {
+	var reservation models.Reservation
+	return reservation, nil
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/nchukkaio/goweblearning/internal/config"
 	"github.com/nchukkaio/goweblearning/internal/driver"
 	"github.com/nchukkaio/goweblearning/internal/forms"
+	"github.com/nchukkaio/goweblearning/internal/helpers"
 	"github.com/nchukkaio/goweblearning/internal/models"
 	"github.com/nchukkaio/goweblearning/internal/render"
 	"github.com/nchukkaio/goweblearning/internal/repository"
@@ -479,12 +480,58 @@ func (m *Repository) AdminDashBoard(w http.ResponseWriter, r *http.Request) {
 
 // AdminAllReservations renders all reservations
 func (m *Repository) AdminAllReservations(w http.ResponseWriter, r *http.Request) {
-	render.Template(w, r, "admin-all-reservations.page.tmpl", &models.TemplateData{})
+	reservations, err := m.DB.AllReservations()
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	data := make(map[string]interface{})
+
+	data["reservations"] = reservations
+	render.Template(w, r, "admin-all-reservations.page.tmpl", &models.TemplateData{
+		Data: data,
+	})
 }
 
 // AdminNewReservations renders new reservations
 func (m *Repository) AdminNewReservations(w http.ResponseWriter, r *http.Request) {
-	render.Template(w, r, "admin-new-reservations.page.tmpl", &models.TemplateData{})
+	reservations, err := m.DB.NewReservations()
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	data := make(map[string]interface{})
+
+	data["reservations"] = reservations
+	render.Template(w, r, "admin-new-reservations.page.tmpl", &models.TemplateData{
+		Data: data,
+	})
+}
+
+func (m *Repository) AdminShowReservation(w http.ResponseWriter, r *http.Request) {
+	exploded := strings.Split(r.RequestURI, "/")
+	id, err := strconv.Atoi(exploded[4])
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	src := exploded[3]
+	stringMap := make(map[string]string)
+	stringMap["src"] = src
+
+	res, err := m.DB.GetReservationById(id)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	data := make(map[string]interface{})
+
+	data["reservations"] = res
+	render.Template(w, r, "admin-show-reservation.page.tmpl", &models.TemplateData{
+		Data:      data,
+		StringMap: stringMap,
+		Form:      forms.New(nil),
+	})
 }
 
 // AdminReservationsCalendar renders reservations calendar
