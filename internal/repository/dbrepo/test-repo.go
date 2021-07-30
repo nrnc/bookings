@@ -91,3 +91,17 @@ func (m *testDBRepo) GetReservationById(id int) (models.Reservation, error) {
 	var reservation models.Reservation
 	return reservation, nil
 }
+
+// UpdateReservation updates reservation in the database
+func (m *testDBRepo) UpdateReservation(r models.Reservation) error {
+	return nil
+}
+
+func (m *testDBRepo) DeleteReservation(id int) error {
+	return nil
+}
+
+// UpdateProcessedForReservation updates processed status of reservation in the database
+func (m *testDBRepo) UpdateProcessedForReservation(id, processed int) error {
+	return nil
+}
