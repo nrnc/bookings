@@ -19,6 +19,7 @@ var functions = template.FuncMap{
 	"humanDate":  HumanDate,
 	"formatDate": FormatDate,
 	"iterate":    Iterate,
+	"add":        Add,
 }
 
 var app *config.AppConfig
@@ -27,6 +28,11 @@ var pathToTemplate = "./templates"
 // NewTemplates sets the config for the template package
 func NewRenderer(a *config.AppConfig) {
 	app = a
+}
+
+//
+func Add(a, b int) int {
+	return a + b
 }
 
 // return time in YYYY-MM-DD
